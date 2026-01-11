@@ -2,39 +2,62 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>دردشة DistilGPT2</title>
+<title>دردشة AI DistilGPT2</title>
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
 h2 { color: #333; }
-#chatBox { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #fff; margin-bottom: 10px;}
+#loader { border: 1px solid #ccc; padding: 10px; height: 30px; width: 100%; background: #fff; margin-bottom: 10px; }
+#progressBar { width: 0%; height: 100%; background: #4caf50; text-align: center; color: white; line-height: 30px; }
+#chatBox { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #fff; margin-bottom: 10px; display: none; }
 input, button { padding: 10px; font-size: 16px; }
 button { cursor: pointer; }
+#inputSection { display: none; }
 </style>
 </head>
 <body>
-<h2>دردشة AI (DistilGPT2)</h2>
+<h2>دردشة AI DistilGPT2</h2>
+
+<div id="loader">
+  <div id="progressBar">جارٍ تحميل النموذج...</div>
+</div>
 
 <div id="chatBox"></div>
-<input type="text" id="userInput" placeholder="اكتب سؤالك هنا" style="width:70%;">
-<button onclick="askAI()">إرسال</button>
+<div id="inputSection">
+  <input type="text" id="userInput" placeholder="اكتب سؤالك هنا" style="width:70%;">
+  <button onclick="askAI()">إرسال</button>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
 <script>
 let model, tokenizer;
-
-// تحميل النموذج الصغير والسريع
-async function loadModel() {
-    addMessage("النظام", "جارٍ تحميل النموذج...");
-    model = await window.transformers.AutoModelForCausalLM.from_pretrained('distilgpt2');
-    tokenizer = await window.transformers.AutoTokenizer.from_pretrained('distilgpt2');
-    addMessage("النظام", "النموذج جاهز! اسأل أي شيء.");
-}
 
 // إضافة رسالة في صندوق الدردشة
 function addMessage(sender, message) {
     const chatBox = document.getElementById('chatBox');
     chatBox.innerHTML += `<p><b>${sender}:</b> ${message}</p>`;
     chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// تحميل النموذج مع شريط تقدم (تقريبي)
+async function loadModel() {
+    const progressBar = document.getElementById('progressBar');
+    addMessage("النظام", "جارٍ تحميل النموذج...");
+    
+    // التحميل
+    model = await window.transformers.AutoModelForCausalLM.from_pretrained('distilgpt2', {
+        progress_callback: (loaded, total) => {
+            let percent = Math.floor((loaded/total)*100);
+            progressBar.style.width = percent + '%';
+            progressBar.innerText = `جارٍ تحميل النموذج... ${percent}%`;
+        }
+    });
+    tokenizer = await window.transformers.AutoTokenizer.from_pretrained('distilgpt2');
+
+    // إخفاء شريط التحميل واظهار الدردشة
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('chatBox').style.display = 'block';
+    document.getElementById('inputSection').style.display = 'block';
+    addMessage("النظام", "النموذج جاهز! اسأل أي شيء.");
 }
 
 // وظيفة الدردشة
