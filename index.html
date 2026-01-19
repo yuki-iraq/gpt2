@@ -4,50 +4,132 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Anime World</title>
+
 <style>
-body{margin:0;font-family:Arial, sans-serif;background:#111;color:#fff;}
-header{background:#222;padding:15px;text-align:center;}
-#searchBar{width:60%;padding:10px;border:none;border-radius:5px;margin-top:10px;}
-#buttons{margin-top:10px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}
-button{padding:10px 15px;border:none;border-radius:5px;background:#ff6600;color:#fff;cursor:pointer;}
-button:hover{background:#ff8533;}
-#animeGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:15px;padding:20px;}
-.animeCard{background:#333;border-radius:8px;overflow:hidden;cursor:pointer;transition:0.3s;position:relative;}
-.animeCard:hover{transform:scale(1.05);}
-.animeCard img{width:100%;height:220px;object-fit:cover;}
-.animeTitle{padding:8px;text-align:center;font-weight:bold;}
-.fav{position:absolute;top:8px;right:8px;font-size:22px;cursor:pointer;}
-.fav.active{color:red;}
-#details{display:none;position:fixed;inset:0;background:#000;overflow-y:auto;padding:20px;}
-#details img{width:260px;border-radius:8px;}
-#episodeList{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px;}
-iframe{width:100%;max-width:900px;height:500px;border:none;margin-top:15px;border-radius:8px;}
-#loadMore{display:block;margin:15px auto;padding:10px 20px;background:#ff6600;border:none;border-radius:5px;color:#fff;cursor:pointer;}
-#loadMore:hover{background:#ff8533;}
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:#111;
+  color:#fff;
+}
+header{
+  background:#222;
+  padding:15px;
+  text-align:center;
+}
+#searchBar{
+  width:60%;
+  padding:10px;
+  border:none;
+  border-radius:5px;
+  margin-top:10px;
+}
+#buttons{
+  margin-top:10px;
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+button{
+  padding:10px 15px;
+  border:none;
+  border-radius:5px;
+  background:#ff6600;
+  color:#fff;
+  cursor:pointer;
+}
+button:hover{
+  background:#ff8533;
+}
+#animeGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+  gap:15px;
+  padding:20px;
+}
+.animeCard{
+  background:#333;
+  border-radius:8px;
+  overflow:hidden;
+  cursor:pointer;
+  transition:0.3s;
+  position:relative;
+}
+.animeCard:hover{
+  transform:scale(1.05);
+}
+.animeCard img{
+  width:100%;
+  height:300px;
+  object-fit:cover;
+}
+.animeTitle{
+  padding:10px;
+  text-align:center;
+  font-weight:bold;
+}
+.fav{
+  position:absolute;
+  top:10px;
+  right:10px;
+  font-size:22px;
+  cursor:pointer;
+}
+.fav.active{
+  color:red;
+}
+#details{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:#000;
+  overflow-y:auto;
+  padding:20px;
+}
+#details img{
+  width:300px;
+  border-radius:8px;
+}
+#episodeList{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:15px;
+}
+iframe{
+  width:100%;
+  max-width:900px;
+  height:500px;
+  border:none;
+  margin-top:15px;
+  border-radius:8px;
+}
 </style>
 </head>
+
 <body>
+
 <header>
-<h1>🌍 Anime World</h1>
-<input id="searchBar" placeholder="ابحث عن أنمي..." />
-<div id="buttons">
-<button onclick="topAnime()">أفضل أنمي</button>
-<button onclick="allAnime()">كل الأنميات</button>
-<button onclick="showFav()">المفضلة ❤️</button>
-</div>
+  <h1>🌍 Anime World</h1>
+  <input id="searchBar" placeholder="ابحث عن أنمي..." />
+  <div id="buttons">
+    <button onclick="topAnime()">أفضل أنمي</button>
+    <button onclick="allAnime()">كل الأنميات</button>
+    <button onclick="showFav()">المفضلة ❤️</button>
+  </div>
 </header>
 
 <div id="animeGrid"></div>
-<button id="loadMore" style="display:none;" onclick="loadNextPage()">تحميل المزيد</button>
 
 <div id="details">
-<button onclick="closeDetails()">⬅ رجوع</button>
-<h2 id="dTitle"></h2>
-<img id="dImg">
-<p id="dInfo"></p>
-<p id="dDesc"></p>
-<div id="episodeList"></div>
-<iframe id="player" allowfullscreen></iframe>
+  <button onclick="closeDetails()">⬅ رجوع</button>
+  <h2 id="dTitle"></h2>
+  <img id="dImg">
+  <p id="dInfo"></p>
+  <p id="dDesc"></p>
+  <div id="episodeList"></div>
+  <iframe id="player" allowfullscreen></iframe>
 </div>
 
 <script>
@@ -60,12 +142,8 @@ const dDesc = document.getElementById("dDesc");
 const dInfo = document.getElementById("dInfo");
 const episodeList = document.getElementById("episodeList");
 const player = document.getElementById("player");
-const loadMoreBtn = document.getElementById("loadMore");
 
 let favorites = [];
-let currentQuery = "";
-let currentPage = 1;
-let isAllAnimeMode = false;
 
 // AniList GraphQL
 async function aniList(query){
@@ -77,15 +155,19 @@ async function aniList(query){
   return r.json();
 }
 
-// ترجمة
+// ترجمة عربي
 async function translate(text){
   if(!text) return "لا يوجد وصف";
-  const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ar`);
-  const j = await r.json();
-  return j.responseData.translatedText;
+  try{
+    const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ar`);
+    const j = await r.json();
+    return j.responseData.translatedText;
+  }catch{
+    return text;
+  }
 }
 
-// إنشاء كارت
+// إنشاء بطاقة الأنمي
 function card(anime){
   const div = document.createElement("div");
   div.className="animeCard";
@@ -102,41 +184,55 @@ function card(anime){
   grid.appendChild(div);
 }
 
-// فتح التفاصيل
+// فتح تفاصيل الأنمي
 async function openDetails(anime){
   details.style.display="block";
   dTitle.textContent = anime.title.romaji;
   dImg.src = anime.coverImage.large;
   dDesc.textContent = await translate(anime.description);
-  dInfo.innerHTML = `الحالة: ${anime.status} | الحلقات: ${anime.episodes || "؟"} | التقييم: ${anime.averageScore || "N/A"} | الاستوديو: ${anime.studios.nodes.map(s=>s.name).join(", ")}`;
+  dInfo.innerHTML = `
+    الحالة: ${anime.status} |
+    الحلقات: ${anime.episodes || "؟"} |
+    التقييم: ${anime.averageScore || "N/A"} |
+    الاستوديو: ${anime.studios.nodes.map(s=>s.name).join(", ")}
+  `;
   episodeList.innerHTML="";
   player.src="";
   if(anime.episodes){
     for(let i=1;i<=anime.episodes;i++){
       const b=document.createElement("button");
       b.textContent=`حلقة ${i}`;
-      b.onclick=()=>player.src=`https://animembed.xyz/embed/anime/${anime.id}/${i}`;
+      // ربط الحلقات عبر VidNest
+      b.onclick=()=>player.src=`https://vidnest.com/embed/anime/${anime.id}/${i}`;
       episodeList.appendChild(b);
     }
   }
 }
 
 // إغلاق التفاصيل
-function closeDetails(){ details.style.display="none"; player.src=""; }
+function closeDetails(){
+  details.style.display="none";
+  player.src="";
+}
 
 // المفضلة
 function toggleFav(id,el){
   if(favorites.includes(id)){
-    favorites=favorites.filter(x=>x!==id); el.classList.remove("active");
+    favorites=favorites.filter(x=>x!==id);
+    el.classList.remove("active");
   }else{
-    favorites.push(id); el.classList.add("active");
+    favorites.push(id);
+    el.classList.add("active");
   }
 }
 
+// عرض المفضلة
 function showFav(){
   grid.innerHTML="";
-  loadMoreBtn.style.display="none";
-  if(favorites.length===0){ grid.innerHTML="<p style='padding:20px'>لا توجد مفضلة</p>"; return; }
+  if(favorites.length===0){
+    grid.innerHTML="<p style='padding:20px'>لا توجد مفضلة</p>";
+    return;
+  }
   favorites.forEach(id=>{
     aniList(`query{Media(id:${id},type:ANIME){id title{romaji} description coverImage{large} episodes status averageScore studios{nodes{name}}}}`)
     .then(d=>card(d.data.Media));
@@ -146,29 +242,16 @@ function showFav(){
 // أفضل 30 أنمي
 async function topAnime(){
   grid.innerHTML="";
-  loadMoreBtn.style.display="none";
-  isAllAnimeMode = false;
   const q=`query{Page(perPage:30){media(type:ANIME,sort:SCORE_DESC){id title{romaji} description coverImage{large} episodes status averageScore studios{nodes{name}}}}}`;
   const d=await aniList(q);
   d.data.Page.media.forEach(card);
 }
 
-// كل الأنميات بدون حد (100 لكل صفحة، يمكن الضغط "تحميل المزيد")
+// كل الأنميات (100 لكل مرة)
 async function allAnime(){
   grid.innerHTML="";
-  currentQuery = `query{Page(perPage:100,page:1){media(type:ANIME,sort:POPULARITY_DESC){id title{romaji} description coverImage{large} episodes status averageScore studios{nodes{name}}}}}`;
-  currentPage = 1;
-  isAllAnimeMode = true;
-  loadMoreBtn.style.display="block";
-  await loadNextPage();
-}
-
-// تحميل الصفحة التالية
-async function loadNextPage(){
-  currentPage++;
-  const query = `query{Page(perPage:100,page:${currentPage}){media(type:ANIME,sort:POPULARITY_DESC){id title{romaji} description coverImage{large} episodes status averageScore studios{nodes{name}}}}}`;
-  const d = await aniList(query);
-  if(!d.data.Page.media || d.data.Page.media.length===0){ loadMoreBtn.style.display="none"; return; }
+  const q=`query{Page(perPage:100){media(type:ANIME,sort:POPULARITY_DESC){id title{romaji} description coverImage{large} episodes status averageScore studios{nodes{name}}}}}`;
+  const d=await aniList(q);
   d.data.Page.media.forEach(card);
 }
 
@@ -176,15 +259,19 @@ async function loadNextPage(){
 searchBar.addEventListener("keydown",async e=>{
   if(e.key==="Enter"){
     grid.innerHTML="";
-    loadMoreBtn.style.display="none";
     const q=`query{Page(perPage:30){media(search:"${searchBar.value}",type:ANIME){id title{romaji} description coverImage{large} episodes status averageScore studios{nodes{name}}}}}`;
     const d=await aniList(q);
-    d.data.Page.media.forEach(card);
+    if(d.data.Page.media.length===0){
+      grid.innerHTML="<p style='padding:20px'>لم يتم العثور على أي أنمي</p>";
+    } else {
+      d.data.Page.media.forEach(card);
+    }
   }
 });
 
-// تحميل تلقائي أفضل أنمي
+// تحميل أفضل الأنميات عند البداية
 topAnime();
 </script>
+
 </body>
 </html>
