@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anime Jikan</title>
+<title>AnimeDex</title>
 <style>
   body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:0; }
   header { padding:20px; text-align:center; background:#222; }
@@ -14,24 +14,22 @@
   .animeCard img { width:100%; height:200px; object-fit:cover; }
   .animeTitle { padding:10px; text-align:center; font-weight:bold; }
   #animeDetails { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); padding:40px; overflow-y:auto; }
-  #closeBtn { float:right; cursor:pointer; font-size:25px; }
+  #closeBtn { cursor:pointer; font-size:25px; margin-bottom:10px; display:inline-block; background:#ff6600; padding:5px 15px; border-radius:5px; }
   #episodeList { display:flex; flex-wrap:wrap; gap:10px; margin-top:15px; }
   #episodeList button { margin:5px; padding:5px 10px; background:#ff6600; color:#fff; border:none; border-radius:5px; cursor:pointer; }
   video { width:100%; max-width:600px; margin-top:15px; border-radius:5px; }
-  #backBtn { display:none; margin:10px auto; padding:10px 20px; background:#ff6600; color:#fff; border:none; border-radius:5px; cursor:pointer; display:block; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Anime Jikan</h1>
-  <input type="text" id="searchBar" placeholder="ابحث عن انمي...">
-  <button id="backBtn">العودة</button>
+  <h1>AnimeDex</h1>
+  <input type="text" id="searchBar" placeholder="ابحث عن أنمي...">
 </header>
 
 <div id="animeGrid"></div>
 
 <div id="animeDetails">
-  <span id="closeBtn">&times;</span>
+  <span id="closeBtn">رجوع</span>
   <h2 id="detailTitle"></h2>
   <img id="detailCover" src="" alt="" style="width:300px;height:auto;">
   <p id="detailDescription"></p>
@@ -49,103 +47,68 @@ const detailCover = document.getElementById("detailCover");
 const detailDesc = document.getElementById("detailDescription");
 const episodeList = document.getElementById("episodeList");
 const episodePlayer = document.getElementById("episodePlayer");
-const backBtn = document.getElementById("backBtn");
 
-// 🌟 جلب Top Anime
-async function fetchTopAnime() {
+// 🌟 جلب كل الأنميات
+async function fetchAllAnime() {
   try {
-    const resp = await fetch("https://api.jikan.moe/v4/top/anime");
+    const resp = await fetch("https://api.zylora.me/anime"); // API خارجي يعطي كل الأنميات
     const data = await resp.json();
-    displayAnime(data.data.slice(0,30));
-    backBtn.style.display = "none";
+    displayAnime(data || []);
   } catch(err) {
     console.error("خطأ جلب الأنمي:", err);
     grid.innerHTML="<p>لم يتم العثور على أي أنمي.</p>";
   }
 }
 
-// 🌟 البحث الذكي
+// 🌟 البحث الذكي عن أنمي (حتى لو الاسم مش كامل)
 async function searchAnime(query){
+  if(!query) return fetchAllAnime();
   try{
-    const resp = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=50`);
+    const resp = await fetch(`https://api.zylora.me/anime?search=${encodeURIComponent(query)}`);
     const data = await resp.json();
-    let results = data.data || [];
-
-    results = results.filter(a => 
-      a.title.toLowerCase().includes(query.toLowerCase()) ||
-      (a.title_english && a.title_english.toLowerCase().includes(query.toLowerCase())) ||
-      (a.title_japanese && a.title_japanese.includes(query))
-    );
-
-    if(results.length === 0){
-      grid.innerHTML = "<p>لا يوجد أنمي مطابق.</p>";
-      backBtn.style.display = "inline-block";
-      return;
-    }
-
-    displayAnime(results);
-    backBtn.style.display = "inline-block";
-
+    displayAnime(data || []);
   } catch(err){
     console.error("خطأ البحث:", err);
-    grid.innerHTML = "<p>حدث خطأ أثناء البحث.</p>";
+    grid.innerHTML="<p>لم يتم العثور على أي أنمي.</p>";
   }
 }
 
-// 🌟 عرض الأنمي
+// 🌟 عرض الأنمي في الشبكة
 function displayAnime(animes){
   grid.innerHTML="";
-  if(animes.length===0){ grid.innerHTML="<p>لم يتم العثور على أي أنمي.</p>"; return; }
-  animes.forEach(async anime=>{
+  if(!animes.length){ grid.innerHTML="<p>لا يوجد أنمي.</p>"; return; }
+  animes.forEach(anime=>{
     const card=document.createElement("div");
     card.className="animeCard";
-    card.innerHTML=`<img src="${anime.images.jpg.image_url}" alt="${anime.title}"><div class="animeTitle">${anime.title}</div>`;
+    card.innerHTML=`<img src="${anime.cover || ''}" alt="${anime.title}"><div class="animeTitle">${anime.title}</div>`;
     card.onclick=()=>showDetails(anime);
     grid.appendChild(card);
   });
 }
 
-// 🌟 ترجمة النص للعربي
-async function translateText(text){
-  if(!text) return "لا يوجد وصف";
-  if(text.length > 450) text = text.slice(0,450) + "...";
-  try{
-    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ar`);
-    const data = await resp.json();
-    return data.responseData.translatedText || text;
-  }catch(e){
-    console.error("خطأ الترجمة:", e);
-    return text;
+// 🌟 عرض تفاصيل الأنمي
+function showDetails(anime){
+  details.style.display="block";
+  detailTitle.textContent=anime.title;
+  detailCover.src=anime.cover || '';
+  // ترجمة الوصف تلقائي (هنا نعتمد الوصف عربي إذا موجود أو نستعمل API ترجمة لو تحب)
+  detailDesc.textContent=anime.description || "لا يوجد وصف متاح";
+  episodeList.innerHTML="";
+  if(anime.episodes && anime.episodes.length>0){
+    anime.episodes.forEach(ep=>{
+      const btn = document.createElement("button");
+      btn.textContent=ep.title || "حلقة";
+      btn.onclick=()=>{ episodePlayer.src=ep.link; episodePlayer.play(); };
+      episodeList.appendChild(btn);
+    });
   }
 }
 
-// 🌟 تفاصيل الأنمي
-async function showDetails(anime){
-  details.style.display="block";
-  detailTitle.textContent=anime.title;
-  detailCover.src=anime.images.jpg.image_url;
-  detailDesc.textContent = "جاري التحميل...";
-
-  // ترجمة الوصف
-  const translated = await translateText(anime.synopsis);
-  detailDesc.textContent = translated;
-
-  episodeList.innerHTML="";
-  // لو عندك روابط الحلقات تقدر تضيفها هنا
-}
-
-// 🌟 إغلاق صفحة التفاصيل
+// 🌟 زر الرجوع
 closeBtn.onclick = () => {
   details.style.display="none";
   episodePlayer.pause();
   episodePlayer.src="";
-}
-
-// 🌟 زر العودة
-backBtn.onclick = () => {
-  fetchTopAnime();
-  searchBar.value = "";
-  backBtn.style.display = "none";
 }
 
 // البحث عند الضغط Enter
@@ -153,8 +116,8 @@ searchBar.addEventListener("keyup",(e)=>{
   if(e.key==="Enter") searchAnime(searchBar.value);
 });
 
-// تحميل الأنميات الشعبية عند بداية الصفحة
-fetchTopAnime();
+// تحميل كل الأنميات عند بداية الصفحة
+fetchAllAnime();
 </script>
 </body>
 </html>
