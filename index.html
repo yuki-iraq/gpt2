@@ -14,7 +14,7 @@
   .animeCard img { width:100%; height:200px; object-fit:cover; }
   .animeTitle { padding:10px; text-align:center; font-weight:bold; }
   #animeDetails { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); padding:40px; overflow-y:auto; }
-  #closeBtn { float:right; cursor:pointer; font-size:25px; }
+  #closeBtn { cursor:pointer; font-size:25px; margin-bottom:15px; display:inline-block; background:#ff6600; padding:5px 15px; border-radius:5px; }
   #episodeList { display:flex; flex-wrap:wrap; gap:10px; margin-top:15px; }
   #episodeList button { margin:5px; padding:5px 10px; background:#ff6600; color:#fff; border:none; border-radius:5px; cursor:pointer; }
   video { width:100%; max-width:600px; margin-top:15px; border-radius:5px; }
@@ -29,7 +29,7 @@
 <div id="animeGrid"></div>
 
 <div id="animeDetails">
-  <span id="closeBtn">&times;</span>
+  <span id="closeBtn">رجوع</span>
   <h2 id="detailTitle"></h2>
   <img id="detailCover" src="" alt="" style="width:300px;height:auto;">
   <p id="detailDescription"></p>
@@ -60,14 +60,31 @@ async function fetchTopAnime() {
   }
 }
 
-// 🌟 البحث عن أنمي
+// 🌟 البحث الذكي عن أنمي
 async function searchAnime(query){
   try{
-    const resp = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=30`);
+    // نستخدم limit كبير + fuzzy search
+    const resp = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=50`);
     const data = await resp.json();
-    displayAnime(data.data || []);
+    if(!data.data || data.data.length===0){
+      grid.innerHTML="<p>لا يوجد نتائج، حاول كتابة اسم آخر أو قريب من الاسم.</p>";
+      return;
+    }
+    displayAnime(data.data);
   } catch(err){
     console.error("خطأ البحث:", err);
+  }
+}
+
+// 🌟 ترجمة الوصف للعربي باستخدام API مجانية
+async function translateText(text){
+  try{
+    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ar`);
+    const data = await resp.json();
+    return data.responseData.translatedText;
+  } catch(e){
+    console.error("خطأ الترجمة:", e);
+    return text; // لو فشل الترجمة نرجع النص الإنجليزي
   }
 }
 
@@ -85,13 +102,17 @@ function displayAnime(animes){
 }
 
 // 🌟 تفاصيل الأنمي
-function showDetails(anime){
+async function showDetails(anime){
   details.style.display="block";
   detailTitle.textContent=anime.title;
   detailCover.src=anime.images.jpg.image_url;
-  detailDesc.textContent=anime.synopsis || "لا يوجد وصف";
+  // ترجمة الوصف
+  detailDesc.textContent="...جارٍ الترجمة";
+  const translated = await translateText(anime.synopsis || "لا يوجد وصف");
+  detailDesc.textContent = translated;
+
   episodeList.innerHTML="";
-  // ممكن لو عندك روابط الحلقات تضيفها هنا
+  // لو عندك روابط الحلقات تقدر تضيفها هنا
 }
 
 closeBtn.onclick = () => {
