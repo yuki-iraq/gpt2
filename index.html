@@ -2,88 +2,139 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>دردشة AI DistilGPT2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnimeZylora</title>
 <style>
-body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-h2 { color: #333; }
-#loader { border: 1px solid #ccc; padding: 10px; height: 30px; width: 100%; background: #fff; margin-bottom: 10px; }
-#progressBar { width: 0%; height: 100%; background: #4caf50; text-align: center; color: white; line-height: 30px; }
-#chatBox { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #fff; margin-bottom: 10px; display: none; }
-input, button { padding: 10px; font-size: 16px; }
-button { cursor: pointer; }
-#inputSection { display: none; }
+  body { font-family: Arial, sans-serif; background: #1a1a1a; color: #fff; margin: 0; padding: 0; }
+  header { padding: 20px; text-align: center; background: #222; }
+  #searchBar { width: 60%; padding: 10px; border-radius: 5px; border: none; }
+  #filterBar { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  #filterBar button { padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; background: #ff6600; color: #fff; }
+  #animeGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; padding: 20px; }
+  .animeCard { background: #333; border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.3s; }
+  .animeCard:hover { transform: scale(1.05); }
+  .animeCard img { width: 100%; height: 200px; object-fit: cover; }
+  .animeTitle { padding: 10px; text-align: center; font-weight: bold; }
+  #animeDetails { display: none; position: fixed; top: 0; left:0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); padding: 40px; overflow-y: auto; }
+  #closeBtn { float: right; cursor: pointer; font-size: 25px; }
+  #episodeList { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+  #episodeList button { margin: 5px; padding: 5px 10px; background: #ff6600; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+  video { width: 100%; max-width: 600px; margin-top: 15px; border-radius: 5px; }
 </style>
 </head>
 <body>
-<h2>دردشة AI DistilGPT2</h2>
+<header>
+  <h1>AnimeZylora</h1>
+  <input type="text" id="searchBar" placeholder="ابحث عن انمي...">
+  <div id="filterBar">
+    <button data-type="all">الكل</button>
+    <button data-type="action">أكشن</button>
+    <button data-type="romance">رومانسي</button>
+    <button data-type="horror">رعب</button>
+    <button data-type="comedy">كوميدي</button>
+    <button data-type="school">مدرسي</button>
+  </div>
+</header>
 
-<div id="loader">
-  <div id="progressBar">جارٍ تحميل النموذج...</div>
+<div id="animeGrid"></div>
+
+<div id="animeDetails">
+  <span id="closeBtn">&times;</span>
+  <h2 id="detailTitle"></h2>
+  <img id="detailCover" src="" alt="" style="width:300px;height:auto;">
+  <p id="detailDescription"></p>
+  <div id="episodeList"></div>
+  <video id="episodePlayer" controls></video>
 </div>
 
-<div id="chatBox"></div>
-<div id="inputSection">
-  <input type="text" id="userInput" placeholder="اكتب سؤالك هنا" style="width:70%;">
-  <button onclick="askAI()">إرسال</button>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
 <script>
-let model, tokenizer;
+const apiBase = "https://api.zylora.me/anime";
+const grid = document.getElementById("animeGrid");
+const searchBar = document.getElementById("searchBar");
+const details = document.getElementById("animeDetails");
+const closeBtn = document.getElementById("closeBtn");
+const detailTitle = document.getElementById("detailTitle");
+const detailCover = document.getElementById("detailCover");
+const detailDesc = document.getElementById("detailDescription");
+const episodeList = document.getElementById("episodeList");
+const episodePlayer = document.getElementById("episodePlayer");
+const filterBar = document.getElementById("filterBar");
 
-// إضافة رسالة في صندوق الدردشة
-function addMessage(sender, message) {
-    const chatBox = document.getElementById('chatBox');
-    chatBox.innerHTML += `<p><b>${sender}:</b> ${message}</p>`;
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
+let currentLang = "ar"; // يمكن تغييره لاحقاً
+let animeData = [];
 
-// تحميل النموذج مع شريط تقدم (تقريبي)
-async function loadModel() {
-    const progressBar = document.getElementById('progressBar');
-    addMessage("النظام", "جارٍ تحميل النموذج...");
-    
-    // التحميل
-    model = await window.transformers.AutoModelForCausalLM.from_pretrained('distilgpt2', {
-        progress_callback: (loaded, total) => {
-            let percent = Math.floor((loaded/total)*100);
-            progressBar.style.width = percent + '%';
-            progressBar.innerText = `جارٍ تحميل النموذج... ${percent}%`;
-        }
-    });
-    tokenizer = await window.transformers.AutoTokenizer.from_pretrained('distilgpt2');
+async function fetchAnime(search="", type="") {
+  try {
+    let url = `${apiBase}`;
+    if(search) url += `?search=${search}`;
+    const resp = await fetch(url);
+    let data = await resp.json();
 
-    // إخفاء شريط التحميل واظهار الدردشة
-    document.getElementById('loader').style.display = 'none';
-    document.getElementById('chatBox').style.display = 'block';
-    document.getElementById('inputSection').style.display = 'block';
-    addMessage("النظام", "النموذج جاهز! اسأل أي شيء.");
-}
-
-// وظيفة الدردشة
-async function askAI() {
-    const input = document.getElementById('userInput').value.trim();
-    if (!input) return;
-
-    addMessage("أنت", input);
-    document.getElementById('userInput').value = "";
-
-    // تحقق من الأسئلة الحرجة (مثال: العام الحالي)
-    const keywords = ["في أي عام", "العام الحالي", "اي سنة"];
-    if (keywords.some(word => input.includes(word))) {
-        addMessage("AI", "2026");
-        return;
+    if(type && type !== "all") {
+      data = data.filter(anime => anime.genre?.toLowerCase().includes(type));
     }
 
-    // الرد الطبيعي من DistilGPT2
-    const encoded = tokenizer.encode(input);
-    const output = await model.generate(encoded, { max_length: 100 });
-    const decoded = tokenizer.decode(output[0]);
-
-    addMessage("AI", decoded);
+    // ترتيب حسب الشعبية
+    data.sort((a,b) => b.popularity - a.popularity);
+    animeData = data.slice(0,30); // أعلى 30 أنمي
+    displayAnime(animeData);
+  } catch(err) {
+    console.error("خطأ في جلب الأنمي:", err);
+    grid.innerHTML = "<p>لم يتم العثور على أي أنمي.</p>";
+  }
 }
 
-loadModel();
+function displayAnime(animes) {
+  grid.innerHTML = "";
+  animes.forEach(anime => {
+    const card = document.createElement("div");
+    card.className = "animeCard";
+    card.innerHTML = `<img src="${anime.cover}" alt="${anime.name}"><div class="animeTitle">${anime.name}</div>`;
+    card.onclick = () => showDetails(anime);
+    grid.appendChild(card);
+  });
+}
+
+function showDetails(anime) {
+  details.style.display = "block";
+  detailTitle.textContent = anime.name;
+  detailCover.src = anime.cover;
+  detailDesc.textContent = anime.description[currentLang] || anime.description["en"] || "لا يوجد وصف";
+  episodeList.innerHTML = "";
+  if(anime.episodes && anime.episodes.length > 0){
+    anime.episodes.forEach(ep => {
+      const btn = document.createElement("button");
+      btn.textContent = ep.name;
+      btn.onclick = () => {
+        episodePlayer.src = ep.video; 
+        episodePlayer.play();
+      };
+      episodeList.appendChild(btn);
+    });
+  }
+}
+
+closeBtn.onclick = () => {
+  details.style.display = "none";
+  episodePlayer.pause();
+  episodePlayer.src = "";
+}
+
+// أحداث البحث
+searchBar.addEventListener("keyup", (e) => {
+  if(e.key === "Enter") fetchAnime(searchBar.value);
+});
+
+// فلترة حسب النوع
+filterBar.querySelectorAll("button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const type = btn.dataset.type;
+    fetchAnime(searchBar.value, type);
+  });
+});
+
+// تحميل الأنميات الشائعة عند بداية الصفحة
+fetchAnime();
 </script>
 </body>
 </html>
