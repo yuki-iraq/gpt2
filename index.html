@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anime AniList + Zylora</title>
+<title>Anime AniList</title>
 <style>
 body { font-family: Arial,sans-serif; background:#111; color:#fff; margin:0; padding:0; }
 header { padding:20px; text-align:center; background:#222; }
@@ -12,26 +12,24 @@ header { padding:20px; text-align:center; background:#222; }
 button { padding:10px 15px; border:none; border-radius:5px; background:#ff6600; color:#fff; cursor:pointer; transition:0.3s; }
 button:hover { background:#ff9933; }
 #animeGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:15px; padding:20px; }
-.animeCard { background:#333; border-radius:8px; cursor:pointer; overflow:hidden; transition:0.3s; position:relative; }
+.animeCard { background:#333; border-radius:8px; cursor:pointer; overflow:hidden; transition:0.3s; }
 .animeCard:hover { transform:scale(1.05); }
 .animeCard img { width:100%; height:200px; object-fit:cover; }
 .animeTitle { padding:10px; text-align:center; font-weight:bold; }
-.favorite { position:absolute; top:8px; right:8px; font-size:20px; color:#fff; cursor:pointer; }
-.favorite.red { color:red; }
 #animeDetails { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); padding:40px; overflow-y:auto; }
-#closeBtn { cursor:pointer; font-size:25px; background:#ff6600; border:none; padding:5px 10px; border-radius:5px; color:#fff; }
-#episodeList { display:flex; flex-wrap:wrap; gap:10px; margin-top:15px; }
-#episodeList button { padding:5px 10px; border:none; border-radius:5px; background:#ff6600; color:#fff; cursor:pointer; }
-video { width:100%; max-width:600px; margin-top:15px; border-radius:5px; }
+#closeBtn { cursor:pointer; font-size:18px; background:#ff6600; border:none; padding:5px 10px; border-radius:5px; color:#fff; margin-bottom:10px; }
+.heartBtn { font-size:20px; cursor:pointer; color:#fff; background:none; border:none; }
+.heartBtn.active { color:red; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Anime AniList + Zylora</h1>
+  <h1>Anime AniList</h1>
   <input type="text" id="searchBar" placeholder="ابحث عن أنمي...">
   <div id="mainBtns">
+    <button onclick="showTopAnime()">أفضل 30 أنمي</button>
     <button onclick="showAllAnime()">كل الأنميات</button>
-    <button onclick="showTopAnime()">أفضل الأنميات</button>
+    <button onclick="showFavorites()">المفضلة ❤️</button>
   </div>
 </header>
 
@@ -44,11 +42,9 @@ video { width:100%; max-width:600px; margin-top:15px; border-radius:5px; }
   <p id="detailInfo"></p>
   <p id="detailDescription"></p>
   <div id="episodeList"></div>
-  <video id="episodePlayer" controls></video>
 </div>
 
 <script>
-// العناصر
 const grid = document.getElementById("animeGrid");
 const searchBar = document.getElementById("searchBar");
 const details = document.getElementById("animeDetails");
@@ -58,51 +54,54 @@ const detailCover = document.getElementById("detailCover");
 const detailInfo = document.getElementById("detailInfo");
 const detailDescription = document.getElementById("detailDescription");
 const episodeList = document.getElementById("episodeList");
-const episodePlayer = document.getElementById("episodePlayer");
 
-let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
 
-// 🌟 AniList GraphQL Query
-async function fetchAniList(query){
-  const resp = await fetch('https://graphql.anilist.co',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Accept':'application/json'},
+// 🌟 AniList GraphQL
+async function fetchAniList(query) {
+  const resp = await fetch('https://graphql.anilist.co', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json','Accept':'application/json' },
     body: JSON.stringify({ query })
   });
   return await resp.json();
 }
 
-// 🌟 كل الأنميات
-async function showAllAnime(){
-  let page = 1, allAnime = [];
-  grid.innerHTML = "<p>جاري التحميل...</p>";
-  while(page <= 5){ // تقدر تزود الصفحات حسب الحاجة
-    const query = `
-      query {
-        Page(perPage:50, page:${page}) {
-          media(type:ANIME, sort=POPULARITY_DESC){
-            id title { romaji } description(asHtml:false) coverImage{ large } status episodes studios{ nodes{ name } } meanScore
-          }
-        }
-      }
-    `;
-    const data = await fetchAniList(query);
-    allAnime = allAnime.concat(data.data.Page.media);
-    page++;
-  }
-  displayAnime(allAnime);
-}
-
-// 🌟 أفضل الأنميات
+// 🌟 عرض Top 30
 async function showTopAnime(){
   const query = `
-    query {
-      Page(perPage:30){
-        media(type:ANIME, sort:POPULARITY_DESC){
-          id title { romaji } description(asHtml:false) coverImage{ large } status episodes studios{ nodes{ name } } meanScore
-        }
-      }
-    }
+    query { Page(perPage:30){ media(type:ANIME, sort:POPULARITY_DESC){
+      id title { romaji } description(asHtml:false) coverImage { large } status episodes studios { nodes { name } } averageScore
+    } } }
+  `;
+  const data = await fetchAniList(query);
+  displayAnime(data.data.Page.media);
+}
+
+// 🌟 عرض كل الأنميات (أول 100)
+async function showAllAnime(){
+  const query = `
+    query { Page(perPage:100){ media(type:ANIME, sort:POPULARITY_DESC){
+      id title { romaji } description(asHtml:false) coverImage { large } status episodes studios { nodes { name } } averageScore
+    } } }
+  `;
+  const data = await fetchAniList(query);
+  displayAnime(data.data.Page.media);
+}
+
+// 🌟 عرض المفضلة
+function showFavorites(){
+  const favAnimes = favorites;
+  if(favAnimes.length===0) { grid.innerHTML="<p>لا يوجد أنمي مفضل.</p>"; return; }
+  displayAnime(favAnimes);
+}
+
+// 🌟 البحث عن أنمي
+async function searchAnime(name){
+  const query = `
+    query { Page(perPage:30){ media(search:"${name}", type:ANIME){
+      id title { romaji } description(asHtml:false) coverImage { large } status episodes studios { nodes { name } } averageScore
+    } } }
   `;
   const data = await fetchAniList(query);
   displayAnime(data.data.Page.media);
@@ -113,77 +112,46 @@ function displayAnime(animes){
   grid.innerHTML="";
   if(!animes || animes.length===0){ grid.innerHTML="<p>لم يتم العثور على أي أنمي.</p>"; return; }
   animes.forEach(anime=>{
-    const card = document.createElement("div");
+    const card=document.createElement("div");
     card.className="animeCard";
-    card.innerHTML = `
-      <img src="${anime.coverImage.large}" alt="${anime.title.romaji}">
-      <div class="animeTitle">${anime.title.romaji}</div>
-      <div class="favorite ${favorites.includes(anime.id)?'red':''}" onclick="toggleFav(event, ${anime.id})">&#10084;</div>
-    `;
-    card.onclick = ()=>showDetails(anime);
+    const isFav = favorites.some(f=>f.id===anime.id);
+    card.innerHTML=`<img src="${anime.coverImage.large}" alt="${anime.title.romaji}">
+      <div class="animeTitle">${anime.title.romaji} 
+      <button class="heartBtn ${isFav?'active':''}" onclick="toggleFav(event, ${anime.id}, '${anime.title.romaji}', '${anime.coverImage.large}', '${anime.description ? anime.description.replace(/'/g,"\\'") : ''}', '${anime.status}', ${anime.episodes || 0}, '${anime.studios.nodes.map(n=>n.name).join(",")}', ${anime.averageScore || 0})">❤️</button>
+      </div>`;
+    card.onclick=()=>showDetails(anime);
     grid.appendChild(card);
   });
 }
 
-// 🌟 المفضلات
-function toggleFav(e,id){
+// 🌟 إضافة/حذف من المفضلة
+function toggleFav(e,id,title,cover,desc,status,eps,studio,score){
   e.stopPropagation();
-  if(favorites.includes(id)){
-    favorites = favorites.filter(x=>x!==id);
-  } else { favorites.push(id); }
-  localStorage.setItem("favorites",JSON.stringify(favorites));
-  e.target.classList.toggle("red");
+  const index = favorites.findIndex(f=>f.id===id);
+  if(index>-1){ favorites.splice(index,1); e.target.classList.remove("active"); }
+  else { favorites.push({id,title,cover,description:desc,status,episodes:eps,studios:{nodes:[{name:studio}]},averageScore:score}); e.target.classList.add("active"); }
+  localStorage.setItem("favorites", JSON.stringify(favorites));
 }
 
-// 🌟 تفاصيل الأنمي + روابط الحلقات من Zylora
-async function showDetails(anime){
+// 🌟 تفاصيل الأنمي
+function showDetails(anime){
   details.style.display="block";
-  detailTitle.textContent = anime.title.romaji;
-  detailCover.src = anime.coverImage.large;
-  detailInfo.textContent = `الحالة: ${anime.status || '-'} | الحلقات: ${anime.episodes || '-'} | التقييم: ${anime.meanScore || '-'} | الاستوديو: ${anime.studios.nodes.map(n=>n.name).join(", ") || '-'}`;
-  detailDescription.textContent = anime.description || "لا يوجد وصف";
-
-  // 🌟 جلب الحلقات من Zylora
-  episodeList.innerHTML = "<p>جاري جلب الحلقات...</p>";
-  try{
-    const resp = await fetch(`https://api.zylora.me/anime?search=${encodeURIComponent(anime.title.romaji)}`);
-    const data = await resp.json();
-    episodeList.innerHTML="";
-    if(data.episodes && data.episodes.length>0){
-      data.episodes.forEach(ep=>{
-        const btn = document.createElement("button");
-        btn.textContent = `حلقة ${ep.number}`;
-        btn.onclick = ()=>{ episodePlayer.src=ep.url; episodePlayer.play(); };
-        episodeList.appendChild(btn);
-      });
-    } else { episodeList.innerHTML="<p>لا توجد حلقات.</p>"; }
-  } catch(err){ episodeList.innerHTML="<p>فشل جلب الحلقات.</p>"; }
+  detailTitle.textContent=anime.title.romaji;
+  detailCover.src=anime.coverImage.large;
+  detailInfo.textContent=`الحالة: ${anime.status || 'غير معروف'} | الحلقات: ${anime.episodes || '?'} | الاستوديو: ${anime.studios.nodes.map(n=>n.name).join(",")} | التقييم: ${anime.averageScore || '?'}%`;
+  detailDescription.textContent=anime.description || "لا يوجد وصف";
+  episodeList.innerHTML="<p>روابط الحلقات غير متاحة حالياً</p>";
 }
 
 // 🌟 زر الرجوع
-closeBtn.onclick = ()=>{ details.style.display="none"; episodePlayer.pause(); episodePlayer.src=""; };
+closeBtn.onclick = () => { details.style.display="none"; };
 
-// البحث عند الضغط Enter
+// البحث عند Enter
 searchBar.addEventListener("keyup",(e)=>{
-  if(e.key==="Enter") searchByName(searchBar.value);
+  if(e.key==="Enter") searchAnime(searchBar.value);
 });
 
-// 🌟 البحث عن أنمي
-async function searchByName(name){
-  const query = `
-    query {
-      Page(perPage:30){
-        media(search:"${name}", type:ANIME){
-          id title { romaji } description(asHtml:false) coverImage{ large } status episodes studios{ nodes{ name } } meanScore
-        }
-      }
-    }
-  `;
-  const data = await fetchAniList(query);
-  displayAnime(data.data.Page.media);
-}
-
-// 🌟 تحميل أفضل الأنميات عند البداية
+// تحميل Top 30 عند البداية
 showTopAnime();
 </script>
 </body>
