@@ -3,33 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AnimeDex</title>
+<title>Anime AniList</title>
 <style>
-  body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:0; }
-  header { padding:20px; text-align:center; background:#222; }
-  #searchBar { width:60%; padding:10px; border-radius:5px; border:none; }
-  #animeGrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:15px; padding:20px; }
-  .animeCard { background:#333; border-radius:8px; cursor:pointer; overflow:hidden; transition:0.3s; }
-  .animeCard:hover { transform:scale(1.05); }
-  .animeCard img { width:100%; height:200px; object-fit:cover; }
-  .animeTitle { padding:10px; text-align:center; font-weight:bold; }
-  #animeDetails { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); padding:40px; overflow-y:auto; }
-  #closeBtn { cursor:pointer; font-size:25px; margin-bottom:10px; display:inline-block; background:#ff6600; padding:5px 15px; border-radius:5px; }
-  #episodeList { display:flex; flex-wrap:wrap; gap:10px; margin-top:15px; }
-  #episodeList button { margin:5px; padding:5px 10px; background:#ff6600; color:#fff; border:none; border-radius:5px; cursor:pointer; }
-  video { width:100%; max-width:600px; margin-top:15px; border-radius:5px; }
+body { font-family: Arial,sans-serif; background:#111; color:#fff; margin:0; padding:0; }
+header { padding:20px; text-align:center; background:#222; }
+#searchBar { width:60%; padding:10px; border-radius:5px; border:none; }
+#mainBtns { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
+button { padding:10px 15px; border:none; border-radius:5px; background:#ff6600; color:#fff; cursor:pointer; transition:0.3s; }
+button:hover { background:#ff9933; }
+#animeGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:15px; padding:20px; }
+.animeCard { background:#333; border-radius:8px; cursor:pointer; overflow:hidden; transition:0.3s; }
+.animeCard:hover { transform:scale(1.05); }
+.animeCard img { width:100%; height:200px; object-fit:cover; }
+.animeTitle { padding:10px; text-align:center; font-weight:bold; }
+#animeDetails { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); padding:40px; overflow-y:auto; }
+#closeBtn { cursor:pointer; font-size:25px; background:#ff6600; border:none; padding:5px 10px; border-radius:5px; color:#fff; }
+#episodeList { display:flex; flex-wrap:wrap; gap:10px; margin-top:15px; }
+video { width:100%; max-width:600px; margin-top:15px; border-radius:5px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>AnimeDex</h1>
+  <h1>Anime AniList</h1>
   <input type="text" id="searchBar" placeholder="ابحث عن أنمي...">
+  <div id="mainBtns">
+    <button onclick="showTopAnime()">أكثر الأنميات شعبية</button>
+    <button onclick="showAllGenres()">التصنيفات</button>
+  </div>
 </header>
 
 <div id="animeGrid"></div>
 
 <div id="animeDetails">
-  <span id="closeBtn">رجوع</span>
+  <button id="closeBtn">رجوع</button>
   <h2 id="detailTitle"></h2>
   <img id="detailCover" src="" alt="" style="width:300px;height:auto;">
   <p id="detailDescription"></p>
@@ -48,76 +54,105 @@ const detailDesc = document.getElementById("detailDescription");
 const episodeList = document.getElementById("episodeList");
 const episodePlayer = document.getElementById("episodePlayer");
 
-// 🌟 جلب كل الأنميات
-async function fetchAllAnime() {
-  try {
-    const resp = await fetch("https://api.zylora.me/anime"); // API خارجي يعطي كل الأنميات
-    const data = await resp.json();
-    displayAnime(data || []);
-  } catch(err) {
-    console.error("خطأ جلب الأنمي:", err);
-    grid.innerHTML="<p>لم يتم العثور على أي أنمي.</p>";
-  }
+// 🌟 AniList GraphQL Query
+async function fetchAniList(query) {
+  const resp = await fetch('https://graphql.anilist.co', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json','Accept':'application/json' },
+    body: JSON.stringify({ query })
+  });
+  return await resp.json();
 }
 
-// 🌟 البحث الذكي عن أنمي (حتى لو الاسم مش كامل)
-async function searchAnime(query){
-  if(!query) return fetchAllAnime();
-  try{
-    const resp = await fetch(`https://api.zylora.me/anime?search=${encodeURIComponent(query)}`);
-    const data = await resp.json();
-    displayAnime(data || []);
-  } catch(err){
-    console.error("خطأ البحث:", err);
-    grid.innerHTML="<p>لم يتم العثور على أي أنمي.</p>";
-  }
+// 🌟 عرض Top Anime
+async function showTopAnime(){
+  const query = `
+    query {
+      Page(perPage:30){
+        media(type:ANIME, sort:POPULARITY_DESC){
+          id title { romaji, english } description( asHtml:false ) coverImage { large } genres
+        }
+      }
+    }
+  `;
+  const data = await fetchAniList(query);
+  displayAnime(data.data.Page.media);
 }
 
-// 🌟 عرض الأنمي في الشبكة
+// 🌟 البحث عن أنمي
+async function searchAnime(name){
+  const query = `
+    query {
+      Page(perPage:30){
+        media(search:"${name}", type:ANIME){
+          id title { romaji, english } description( asHtml:false ) coverImage { large } genres
+        }
+      }
+    }
+  `;
+  const data = await fetchAniList(query);
+  displayAnime(data.data.Page.media);
+}
+
+// 🌟 عرض التصنيفات
+function showAllGenres(){
+  const genres = ["Action","Comedy","Drama","Fantasy","Horror","Romance","School"];
+  grid.innerHTML="";
+  genres.forEach(g=>{
+    const btn=document.createElement("button");
+    btn.textContent=g;
+    btn.onclick=()=>searchByGenre(g);
+    grid.appendChild(btn);
+  });
+}
+
+// 🌟 البحث حسب التصنيف
+async function searchByGenre(genre){
+  const query = `
+    query {
+      Page(perPage:30){
+        media(type:ANIME, genre:"${genre}"){
+          id title { romaji, english } description( asHtml:false ) coverImage { large } genres
+        }
+      }
+    }
+  `;
+  const data = await fetchAniList(query);
+  displayAnime(data.data.Page.media);
+}
+
+// 🌟 عرض الأنمي
 function displayAnime(animes){
   grid.innerHTML="";
-  if(!animes.length){ grid.innerHTML="<p>لا يوجد أنمي.</p>"; return; }
+  if(!animes || animes.length===0){ grid.innerHTML="<p>لم يتم العثور على أي أنمي.</p>"; return; }
   animes.forEach(anime=>{
     const card=document.createElement("div");
     card.className="animeCard";
-    card.innerHTML=`<img src="${anime.cover || ''}" alt="${anime.title}"><div class="animeTitle">${anime.title}</div>`;
+    card.innerHTML=`<img src="${anime.coverImage.large}" alt="${anime.title.romaji}"><div class="animeTitle">${anime.title.romaji}</div>`;
     card.onclick=()=>showDetails(anime);
     grid.appendChild(card);
   });
 }
 
-// 🌟 عرض تفاصيل الأنمي
+// 🌟 تفاصيل الأنمي
 function showDetails(anime){
   details.style.display="block";
-  detailTitle.textContent=anime.title;
-  detailCover.src=anime.cover || '';
-  // ترجمة الوصف تلقائي (هنا نعتمد الوصف عربي إذا موجود أو نستعمل API ترجمة لو تحب)
-  detailDesc.textContent=anime.description || "لا يوجد وصف متاح";
+  detailTitle.textContent=anime.title.romaji;
+  detailCover.src=anime.coverImage.large;
+  detailDesc.textContent=anime.description ? anime.description : "لا يوجد وصف";
   episodeList.innerHTML="";
-  if(anime.episodes && anime.episodes.length>0){
-    anime.episodes.forEach(ep=>{
-      const btn = document.createElement("button");
-      btn.textContent=ep.title || "حلقة";
-      btn.onclick=()=>{ episodePlayer.src=ep.link; episodePlayer.play(); };
-      episodeList.appendChild(btn);
-    });
-  }
 }
 
 // 🌟 زر الرجوع
-closeBtn.onclick = () => {
-  details.style.display="none";
-  episodePlayer.pause();
-  episodePlayer.src="";
-}
+closeBtn.onclick = () => { details.style.display="none"; };
 
 // البحث عند الضغط Enter
 searchBar.addEventListener("keyup",(e)=>{
   if(e.key==="Enter") searchAnime(searchBar.value);
 });
 
-// تحميل كل الأنميات عند بداية الصفحة
-fetchAllAnime();
+// تحميل الأنميات الشعبية عند بداية الصفحة
+showTopAnime();
 </script>
 </body>
 </html>
